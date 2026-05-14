@@ -44,15 +44,15 @@ class motion_controller(Node):
             camera_mount.id = "camera_mount"
              
             mount_pose = Pose()
-            mount_pose.position.x = 0.06
-            mount_pose.position.y = 0.0
-            mount_pose.position.z = 0.005
+            mount_pose.position.x = 0.005
+            mount_pose.position.y = -0.06
+            mount_pose.position.z = 0.0
 
 
             mount = SolidPrimitive()
 
             mount.type = SolidPrimitive.BOX
-            mount.dimensions = [0.12, 0.08, 0.01]
+            mount.dimensions = [0.08, 0.12, 0.01]
 
             camera_mount.primitives.append(mount)
             camera_mount.primitive_poses.append(mount_pose)

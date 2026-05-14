@@ -243,6 +243,15 @@ def generate_launch_description():
             },
         ],
     )
+    
+    #cam_to_world = Node(
+    #    package="mega_project",
+    #    executable="cam_to_world_node",
+    #    output="screen",
+    #    #arguments=["--ros-args", "--log-level", "DEBUG"],
+    #    parameters=[],
+    #)
+
 
     ld.add_action(
         RegisterEventHandler(
