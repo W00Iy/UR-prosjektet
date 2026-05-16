@@ -2,107 +2,162 @@ import numpy as np
 import cv2 as cv
 import glob
 import pickle
+import os
 
+# ---------------- SETTINGS ----------------
 
-
-################ FIND CHESSBOARD CORNERS - OBJECT POINTS AND IMAGE POINTS #############################
-
-chessboardSize = (9,6)
-frameSize = (640,480)
-
-
-
-# termination criteria
-criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-
-
-# prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
-objp = np.zeros((chessboardSize[0] * chessboardSize[1], 3), np.float32)
-objp[:,:2] = np.mgrid[0:chessboardSize[0],0:chessboardSize[1]].T.reshape(-1,2)
+chessboardSize = (7, 5)  # antall indre hjørner, ikke antall ruter
+frameSize = (640, 480)
 
 size_of_chessboard_squares_mm = 20
+
+# ---------------- FIND CHESSBOARD CORNERS ----------------
+
+criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+
+objp = np.zeros((chessboardSize[0] * chessboardSize[1], 3), np.float32)
+objp[:, :2] = np.mgrid[0:chessboardSize[0], 0:chessboardSize[1]].T.reshape(-1, 2)
 objp = objp * size_of_chessboard_squares_mm
 
+objpoints = []
+imgpoints = []
 
-# Arrays to store object points and image points from all the images.
-objpoints = [] # 3d point in real world space
-imgpoints = [] # 2d points in image plane.
+images = glob.glob("images/*.png")
 
-
-images = glob.glob('cameraCalibration/images/*.png')
+print("Bilder funnet:", len(images))
 
 for image in images:
-
     img = cv.imread(image)
+
+    if img is None:
+        print("Kunne ikke lese bilde:", image)
+        continue
+
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
-    # Find the chess board corners
     ret, corners = cv.findChessboardCorners(gray, chessboardSize, None)
 
-    # If found, add object points, image points (after refining them)
-    if ret == True:
+    print(image, "sjakkbrett funnet:", ret)
 
+    if ret:
         objpoints.append(objp)
-        corners2 = cv.cornerSubPix(gray, corners, (11,11), (-1,-1), criteria)
-        imgpoints.append(corners)
 
-        # Draw and display the corners
-        cv.drawChessboardCorners(img, chessboardSize, corners2, ret)
-        cv.imshow('img', img)
-        cv.waitKey(1000)
+        corners2 = cv.cornerSubPix(
+            gray,
+            corners,
+            (11, 11),
+            (-1, -1),
+            criteria
+        )
 
+        imgpoints.append(corners2)
+
+        #cv.drawChessboardCorners(img, chessboardSize, corners2, ret)
+        #cv.imshow("Chessboard corners", img)
+        #cv.waitKey(500)
 
 cv.destroyAllWindows()
 
+print("Gyldige kalibreringsbilder:", len(objpoints))
+
+if len(objpoints) == 0:
+    print("Fant ingen gyldige sjakkbrettbilder.")
+    print("Sjekk at:")
+    print("- bildene ligger i images/")
+    print("- chessboardSize stemmer med antall indre hjørner")
+    print("- hele sjakkbrettet er synlig i bildene")
+    exit()
+
+# ---------------- CALIBRATION ----------------
+
+ret, cameraMatrix, dist, rvecs, tvecs = cv.calibrateCamera(
+    objpoints,
+    imgpoints,
+    frameSize,
+    None,
+    None
+)
+
+print("\nCamera matrix:")
+print(cameraMatrix)
+
+print("\nDistortion coefficients:")
+print(dist)
+
+# ---------------- SAVE CALIBRATION ----------------
+
+with open("calibration.pkl", "wb") as f:
+    pickle.dump((cameraMatrix, dist), f)
+
+with open("cameraMatrix.pkl", "wb") as f:
+    pickle.dump(cameraMatrix, f)
+
+with open("dist.pkl", "wb") as f:
+    pickle.dump(dist, f)
+
+print("\nKalibrering lagret.")
+
+# ---------------- UNDISTORT TEST IMAGE ----------------
+
+os.makedirs("calibrated_images", exist_ok=True)
+
+for image in images:
+    img = cv.imread(image)
+    h, w = img.shape[:2]
+
+    newCameraMatrix, roi = cv.getOptimalNewCameraMatrix(
+        cameraMatrix, dist, (w, h), 1, (w, h)
+    )
+
+    dst = cv.undistort(img, cameraMatrix, dist, None, newCameraMatrix)
+
+    x, y, w, h = roi
+    dst = dst[y:y+h, x:x+w]
+
+    filename = os.path.basename(image)
+    cv.imwrite(f"calibrated_images/calibrated_{filename}", dst)
+
+print("Alle kalibrerte bilder er lagret i calibrated_images/")
 
 
 
-############## CALIBRATION #######################################################
+test_images = glob.glob("images/*.png")
 
-ret, cameraMatrix, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, frameSize, None, None)
+if len(test_images) > 0:
+    img = cv.imread(test_images[0])
 
-# Save the camera calibration result for later use (we won't worry about rvecs / tvecs)
-pickle.dump((cameraMatrix, dist), open( "calibration.pkl", "wb" ))
-pickle.dump(cameraMatrix, open( "cameraMatrix.pkl", "wb" ))
-pickle.dump(dist, open( "dist.pkl", "wb" ))
+    h, w = img.shape[:2]
 
+    newCameraMatrix, roi = cv.getOptimalNewCameraMatrix(
+        cameraMatrix,
+        dist,
+        (w, h),
+        1,
+        (w, h)
+    )
 
-############## UNDISTORTION #####################################################
+    dst = cv.undistort(img, cameraMatrix, dist, None, newCameraMatrix)
 
-img = cv.imread('cali5.png')
-h,  w = img.shape[:2]
-newCameraMatrix, roi = cv.getOptimalNewCameraMatrix(cameraMatrix, dist, (w,h), 1, (w,h))
+    x, y, w, h = roi
+    dst = dst[y:y+h, x:x+w]
 
+    cv.imwrite("caliResult1.png", dst)
+    print("Undistorted test image saved as caliResult1.png")
 
+# ---------------- REPROJECTION ERROR ----------------
 
-# Undistort
-dst = cv.undistort(img, cameraMatrix, dist, None, newCameraMatrix)
-
-# crop the image
-x, y, w, h = roi
-dst = dst[y:y+h, x:x+w]
-cv.imwrite('caliResult1.png', dst)
-
-
-
-# Undistort with Remapping
-mapx, mapy = cv.initUndistortRectifyMap(cameraMatrix, dist, None, newCameraMatrix, (w,h), 5)
-dst = cv.remap(img, mapx, mapy, cv.INTER_LINEAR)
-
-# crop the image
-x, y, w, h = roi
-dst = dst[y:y+h, x:x+w]
-cv.imwrite('caliResult2.png', dst)
-
-
-
-
-# Reprojection Error
 mean_error = 0
 
 for i in range(len(objpoints)):
-    imgpoints2, _ = cv.projectPoints(objpoints[i], rvecs[i], tvecs[i], cameraMatrix, dist)
-    error = cv.norm(imgpoints[i], imgpoints2, cv.NORM_L2)/len(imgpoints2)
+    imgpoints2, _ = cv.projectPoints(
+        objpoints[i],
+        rvecs[i],
+        tvecs[i],
+        cameraMatrix,
+        dist
+    )
+
+    error = cv.norm(imgpoints[i], imgpoints2, cv.NORM_L2) / len(imgpoints2)
     mean_error += error
 
-print( "total error: {}".format(mean_error/len(objpoints)) )
+print("Total reprojection error:", mean_error / len(objpoints))
