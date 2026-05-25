@@ -1,0 +1,32 @@
+moveit_setup_assistant_config:
+  urdf:
+    package: my_robot_cell_description
+    relative_path: urdf/my_robot_cell.urdf.xacro
+    xacro_args: ur_type:=ur5e
+  srdf:
+    relative_path: config/my_robot_cell.srdf
+  package_settings:
+    author_name: Benjamin BD
+    author_email: benjambd@stud.ntnu.no
+    generated_timestamp: 1779394118
+  control_xacro:
+    command:
+      - position
+      - velocity
+      - effort
+    state:
+      - position
+      - velocity
+      - effort
+  modified_urdf:
+    xacros:
+      - control_xacro
+  control_xacro:
+    command:
+      - position
+      - velocity
+      - effort
+    state:
+      - position
+      - velocity
+      - effort
