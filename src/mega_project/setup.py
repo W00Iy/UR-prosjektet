@@ -37,6 +37,7 @@ setup(
             'cube_vision_node = mega_project.cube_vision_node:main',
             'cam_to_world_node = mega_project.cam_to_world_node:main',
             'motion_controller_node = mega_project.motion_controller_node:main',
+            'logic_controller_node = mega_project.logic_controller_node:main',
         ],
     },
 )

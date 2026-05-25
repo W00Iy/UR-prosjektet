@@ -44,27 +44,28 @@ class cam_to_world(Node):
         #)
     
         # Pixels from camera
-        self.camSubscription = self.create_subscription(
+        self.cam_subscription = self.create_subscription(
             String,
             '/cube_vision/detections', #.data
             self.cam_callback,
             10
         )
         
-        self.goal_publisher = self.create_publisher(
-            PoseStamped, 
-            '/goal_pose', 
+        #self.goal_publisher = self.create_publisher(
+        #    PoseStamped, 
+        #    '/goal_pose', 
+        #    10
+        #)
+        
+        self.cube_pos_publisher = self.create_publisher(
+            String,
+            '/cube_pos',
             10
         )
 
         self.cube_height = 0.05 #50mm = 0.05m
 
-
-
-
-        timer_period = 1
-        
-        self.timer = self.create_timer(timer_period, self.procedure)
+    
         
     #def cam_matrix_callback(self, msg):
     #    self.K = np.array(msg.k).reshape(3, 3)
@@ -72,6 +73,7 @@ class cam_to_world(Node):
     
     def cam_callback(self, msg):
         self.latest_cam = json.loads(msg.data)
+        self.process_data()
         #self.get_logger().info("[Cam_callback]: " + str(msg))
     def transform_to_matrix(self, tf):
         t = tf.transform.translation
@@ -144,7 +146,7 @@ class cam_to_world(Node):
             return None, None
     
     
-    def procedure(self):
+    def process_data(self):
         # procedure
         
         translation, rotation = self.get_current_ee_pose()
@@ -163,42 +165,116 @@ class cam_to_world(Node):
             self.get_logger().error("Rotation doesn't exist")
             return
         
+
+        x_red = None
+        y_red = None
+
+        x_blue = None
+        y_blue = None
+
+        x_blue = None
+        y_blue = None
+
+        r_red = None
+        r_blue = None
+        r_yellow = None
+
+        p_world_red = None
+        p_world_blue = None
+        p_world_yellow = None
+
+        
         try:
             x_red = self.latest_cam['detections']['red']['x']
             y_red = self.latest_cam['detections']['red']['y']
-        except KeyError:
-            self.get_logger().warn('Fant ikke red i detections')
-            return
-        
-        r = np.array([
-            [x_red],
-            [y_red],
-            [1.0]
-        ])
-        
-        p_world = self.camera_to_point(r, translation.z)
-        if p_world is None:
-            self.get_logger().error("Point does not exist")
-            return
-        
-        goal_pose = PoseStamped()
-        goal_pose.header.stamp = self.get_clock().now().to_msg()
-        goal_pose.header.frame_id = self.base_frame
-        
-        goal_pose.pose.position.x = float(p_world[0, 0])
-        goal_pose.pose.position.y = float(p_world[1, 0])
-        
-        self.get_logger().info('goal x: ' + str(goal_pose.pose.position.x) + '  goal y: ' + str(goal_pose.pose.position.y))
-        
             
-        goal_pose.pose.position.z = translation.z
+            r_red = np.array([
+                [x_red],
+                [y_red],
+                [1.0]
+            ])
 
-        goal_pose.pose.orientation.x = rotation.x
-        goal_pose.pose.orientation.y = rotation.y
-        goal_pose.pose.orientation.z = rotation.z
-        goal_pose.pose.orientation.w = rotation.w
+            p_world_red = self.camera_to_point(r_red, translation.z)
+
+        except (KeyError, TypeError, ValueError):
+            self.get_logger().warn('Did not find red cube')
+        try:
+            x_blue = self.latest_cam['detections']['blue']['x']
+            y_blue = self.latest_cam['detections']['blue']['y']
+
+            r_blue = np.array([
+                [x_blue],
+                [y_blue],
+                [1.0]
+            ])
+
+            p_world_blue = self.camera_to_point(r_blue, translation.z)
             
-        self.goal_publisher.publish(goal_pose)
+        except (KeyError, TypeError, ValueError):
+            self.get_logger().warn('Did not find blue cube')
+        
+        try:
+            x_yellow = self.latest_cam['detections']['yellow']['x']
+            y_yellow = self.latest_cam['detections']['yellow']['y']
+
+            r_yellow = np.array([
+                [x_yellow],
+                [y_yellow],
+                [1.0]
+            ])
+
+            p_world_yellow = self.camera_to_point(r_yellow, translation.z)
+
+        except (KeyError, TypeError, ValueError):
+            self.get_logger().warn('Did not find yellow cube')
+            #return
+        
+
+        
+        data ={
+                "detected": {
+                    "red": (p_world_red is not None),
+                    "blue": (p_world_blue is not None),
+                    "yellow": (p_world_yellow is not None)
+                },
+                "position": {
+                    "red": (p_world_red.tolist() if p_world_red is not None else None),
+                    "blue": (p_world_blue.tolist() if p_world_blue is not None else None),
+                    "yellow": (p_world_yellow.tolist() if p_world_yellow is not None else None),
+                }
+        }
+
+        json_string = json.dumps(data, indent=4)
+
+        #self.get_logger().debug(json_string)
+        
+        msg = String()
+        msg.data = json_string
+
+        self.cube_pos_publisher.publish(msg)
+
+        #goal_pose = PoseStamped()
+        #goal_pose.header.stamp = self.get_clock().now().to_msg()
+        #goal_pose.header.frame_id = self.base_frame
+        
+        #goal_pose.pose.position.x = float(p_world[0, 0])
+        #goal_pose.pose.position.y = float(p_world[1, 0])
+        
+        #goal_pose.pose.position.x = 0.5
+        #goal_pose.pose.position.y = 0.5
+
+
+        #self.get_logger().info('goal x: ' + str(goal_pose.pose.position.x) + '  goal y: ' + str(goal_pose.pose.position.y))
+        
+            
+        #goal_pose.pose.position.z = 0.5#translation.z
+
+        #goal_pose.pose.orientation.x = 1.0
+        #goal_pose.pose.orientation.y = 0.0
+        #goal_pose.pose.orientation.z = 0.0
+        #goal_pose.pose.orientation.w = 0.0
+            
+        #self.goal_publisher.publish(goal_pose)
         
     
 
