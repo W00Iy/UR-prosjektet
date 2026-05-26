@@ -132,7 +132,7 @@
       kinematics_parameters_file="${kinematics_parameters_file}"
       physical_parameters_file="${physical_parameters_file}"
       visual_parameters_file="${visual_parameters_file}">
-      <origin xyz="0.575 0.365 0.015" rpy="0 0 0"/>
+      <origin xyz="0.575 0.365 0.015" rpy="0 0 -0.7854"/>
     </xacro:ur_robot>
 
     <!-- Robot 2 -->
@@ -144,7 +144,7 @@
       kinematics_parameters_file="${kinematics_parameters_file}"
       physical_parameters_file="${physical_parameters_file}"
       visual_parameters_file="${visual_parameters_file}">
-      <origin xyz="-0.425 0.365 0.015" rpy="0 0 0"/>
+      <origin xyz="-0.425 0.365 0.015" rpy="0 0 0.7854"/>
     </xacro:ur_robot>
 
   </xacro:macro>
