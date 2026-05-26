@@ -16,6 +16,22 @@ calibrated_dir = os.path.join(calibrating_dir, "calibrated_images")
 os.makedirs(image_dir, exist_ok=True)
 os.makedirs(calibrated_dir, exist_ok=True)
 
+# ---------------- DELETE OLD CALIBRATION FILES ----------------
+
+old_files = [
+    "calibration.pkl",
+    "cameraMatrix.pkl",
+    "dist.pkl",
+    "caliResult1.png"
+]
+
+for file in old_files:
+    path = os.path.join(calibrating_dir, file)
+
+    if os.path.exists(path):
+        os.remove(path)
+        print(f"Slettet gammel fil: {file}")
+
 # ---------------- SETTINGS ----------------
 
 chessboardSize = (7, 5)
