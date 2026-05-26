@@ -3,12 +3,23 @@ import cv2 as cv
 import glob
 import pickle
 import os
+import shutil
+
+# ---------------- PATHS ----------------
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+calibrating_dir = os.path.join(script_dir, "calibrating")
+image_dir = os.path.join(calibrating_dir, "images")
+calibrated_dir = os.path.join(calibrating_dir, "calibrated_images")
+
+os.makedirs(image_dir, exist_ok=True)
+os.makedirs(calibrated_dir, exist_ok=True)
 
 # ---------------- SETTINGS ----------------
 
-chessboardSize = (7, 5)  # antall indre hjørner, ikke antall ruter
+chessboardSize = (7, 5)
 frameSize = (640, 480)
-
 size_of_chessboard_squares_mm = 20
 
 # ---------------- FIND CHESSBOARD CORNERS ----------------
@@ -22,7 +33,7 @@ objp = objp * size_of_chessboard_squares_mm
 objpoints = []
 imgpoints = []
 
-images = glob.glob("images/*.png")
+images = glob.glob(os.path.join(image_dir, "*.png"))
 
 print("Bilder funnet:", len(images))
 
@@ -52,20 +63,13 @@ for image in images:
 
         imgpoints.append(corners2)
 
-        #cv.drawChessboardCorners(img, chessboardSize, corners2, ret)
-        #cv.imshow("Chessboard corners", img)
-        #cv.waitKey(500)
-
 cv.destroyAllWindows()
 
 print("Gyldige kalibreringsbilder:", len(objpoints))
 
 if len(objpoints) == 0:
     print("Fant ingen gyldige sjakkbrettbilder.")
-    print("Sjekk at:")
-    print("- bildene ligger i images/")
-    print("- chessboardSize stemmer med antall indre hjørner")
-    print("- hele sjakkbrettet er synlig i bildene")
+    print("Bildene må ligge i:", image_dir)
     exit()
 
 # ---------------- CALIBRATION ----------------
@@ -86,20 +90,18 @@ print(dist)
 
 # ---------------- SAVE CALIBRATION ----------------
 
-with open("calibration.pkl", "wb") as f:
+with open(os.path.join(calibrating_dir, "calibration.pkl"), "wb") as f:
     pickle.dump((cameraMatrix, dist), f)
 
-with open("cameraMatrix.pkl", "wb") as f:
+with open(os.path.join(calibrating_dir, "cameraMatrix.pkl"), "wb") as f:
     pickle.dump(cameraMatrix, f)
 
-with open("dist.pkl", "wb") as f:
+with open(os.path.join(calibrating_dir, "dist.pkl"), "wb") as f:
     pickle.dump(dist, f)
 
-print("\nKalibrering lagret.")
+print("\nKalibrering lagret i:", calibrating_dir)
 
-# ---------------- UNDISTORT TEST IMAGE ----------------
-
-os.makedirs("calibrated_images", exist_ok=True)
+# ---------------- UNDISTORT IMAGES ----------------
 
 for image in images:
     img = cv.imread(image)
@@ -115,17 +117,16 @@ for image in images:
     dst = dst[y:y+h, x:x+w]
 
     filename = os.path.basename(image)
-    cv.imwrite(f"calibrated_images/calibrated_{filename}", dst)
+    output_path = os.path.join(calibrated_dir, f"calibrated_{filename}")
 
-print("Alle kalibrerte bilder er lagret i calibrated_images/")
+    cv.imwrite(output_path, dst)
 
+print("Kalibrerte bilder lagret i:", calibrated_dir)
 
+# ---------------- TEST IMAGE ----------------
 
-test_images = glob.glob("images/*.png")
-
-if len(test_images) > 0:
-    img = cv.imread(test_images[0])
-
+if len(images) > 0:
+    img = cv.imread(images[0])
     h, w = img.shape[:2]
 
     newCameraMatrix, roi = cv.getOptimalNewCameraMatrix(
@@ -141,8 +142,7 @@ if len(test_images) > 0:
     x, y, w, h = roi
     dst = dst[y:y+h, x:x+w]
 
-    cv.imwrite("caliResult1.png", dst)
-    print("Undistorted test image saved as caliResult1.png")
+    cv.imwrite(os.path.join(calibrating_dir, "caliResult1.png"), dst)
 
 # ---------------- REPROJECTION ERROR ----------------
 
@@ -161,3 +161,12 @@ for i in range(len(objpoints)):
     mean_error += error
 
 print("Total reprojection error:", mean_error / len(objpoints))
+
+# ---------------- CLEANUP ----------------
+
+print("Sletter bilder etter kalibrering...")
+
+shutil.rmtree(image_dir, ignore_errors=True)
+shutil.rmtree(calibrated_dir, ignore_errors=True)
+
+print("Ferdig.")
