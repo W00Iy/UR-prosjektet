@@ -57,7 +57,7 @@
 
     <!-- Fest camera_mount til tool0 -->
     <joint name="camera_mount_joint" type="fixed">
-      <parent link="tool0"/>
+      <parent link="${ur_type}_tool0"/>
       <child link="camera_mount"/>
       <origin xyz="0 0 0" rpy="0 0 0"/>
     </joint>
@@ -126,7 +126,7 @@
     <!-- Robot 1 -->
     <xacro:ur_robot
       name="${ur_type}"
-      tf_prefix=""
+      tf_prefix="${ur_type}_"
       parent="robot_mount"
       joint_limits_parameters_file="${joint_limits_parameters_file}"
       kinematics_parameters_file="${kinematics_parameters_file}"
@@ -137,8 +137,8 @@
 
     <!-- Robot 2 -->
     <xacro:ur_robot
-      name="${ur_type}"
-      tf_prefix="_2"
+      name="${ur_type}_2"
+      tf_prefix="${ur_type}_2_"
       parent="robot_mount"
       joint_limits_parameters_file="${joint_limits_parameters_file}"
       kinematics_parameters_file="${kinematics_parameters_file}"

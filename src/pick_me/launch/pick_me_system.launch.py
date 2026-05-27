@@ -53,7 +53,6 @@ def generate_launch_description():
             moveit_config.to_dict(),
         ],
     )
-
     main_controller_node = Node(
         package="pick_me",
         executable="main_controller_node",

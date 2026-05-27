@@ -1,9 +1,7 @@
-# Default initial positions for my_robot_cell's ros2_control fake system
-
 initial_positions:
-  elbow_joint: 0
-  shoulder_lift_joint: 0
-  shoulder_pan_joint: 0
-  wrist_1_joint: 0
-  wrist_2_joint: 0
-  wrist_3_joint: 0
+  elbow_joint: -1.5707963268          # -90°
+  shoulder_lift_joint: -1.0297442587  # -59°
+  shoulder_pan_joint: 0.7853981634    # 45°
+  wrist_1_joint: -2.0943951024        # -120°
+  wrist_2_joint: 1.5707963268         # 90°
+  wrist_3_joint: 0.0                  # 0°

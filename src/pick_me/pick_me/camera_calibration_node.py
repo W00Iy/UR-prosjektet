@@ -57,21 +57,21 @@ class SimpleCameraCalibrationNode(Node):
         # These are example calibration poses.
         # Adjust them to safe/reachable poses where the chessboard is visible.
         self.calibration_poses = [
-            (0.35, -0.20, 0.45),
-            (0.35,  0.00, 0.45),
-            (0.35,  0.20, 0.45),
-            (0.45, -0.20, 0.45),
-            (0.45,  0.00, 0.45),
-            (0.45,  0.20, 0.45),
+            (-0.218, -0.375, 0.108),
+            (-0.276, -0.318, 0.110),
+            (-0.172, -0.211, 0.111),
+            (-0.113, -0.268, 0.109),
+            (-0.141, -0.239, 0.168),
+            (-0.245, -0.346, 0.168),
         ]
 
         # Keep a simple fixed tool orientation for now.
         # If planning fails, change these to match a known good RViz pose.
         self.goal_orientation = {
-            "x": 0.0,
-            "y": 0.0,
+            "x": 0.3,
+            "y": 0.707,
             "z": 0.0,
-            "w": 1.0,
+            "w": 0.0,
         }
 
         # ---------------- ROS INTERFACE ----------------
@@ -310,9 +310,9 @@ class SimpleCameraCalibrationNode(Node):
         orientation_constraint.header = pose.header
         orientation_constraint.link_name = self.tool_link
         orientation_constraint.orientation = pose.pose.orientation
-        orientation_constraint.absolute_x_axis_tolerance = math.radians(45.0)
-        orientation_constraint.absolute_y_axis_tolerance = math.radians(45.0)
-        orientation_constraint.absolute_z_axis_tolerance = math.radians(180.0)
+        orientation_constraint.absolute_x_axis_tolerance = math.radians(2.0)
+        orientation_constraint.absolute_y_axis_tolerance = math.radians(2.0)
+        orientation_constraint.absolute_z_axis_tolerance = math.radians(2.0)
         orientation_constraint.weight = 1.0
 
         constraints.position_constraints.append(position_constraint)
