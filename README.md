@@ -38,6 +38,7 @@ Camera_calibration_node performs automatic camera calibration using a chessboard
 It moves the robot through predefined calibration poses using MoveIt and captures images from the camera.
 The node uses OpenCV to detect chessboard corners and compute the camera matrix and lens distortion parameters.
 The calibration results are then published and saved for later use in the vision system.
+This code is a heavily modified version of code made by niconielsen32 (https://github.com/niconielsen32?page=2&tab=repositories).
 
 ## color_picker
 color_picker acts as the main state machine and controller for the robot system.
