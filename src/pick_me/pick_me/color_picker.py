@@ -40,8 +40,7 @@ class ColorPickerNode(Node):
         self.last_motion_status = None
 
         self.search_attempts = 0
-        # The actual extended-search poses are stored in the motion controller.
-        # Keep this number in sync with MotionController.extended_search_positions.
+
         self.max_search_attempts = 6
 
         self.last_state_time = time.time()
@@ -101,7 +100,6 @@ class ColorPickerNode(Node):
 
         self.timer = self.create_timer(0.5, self.state_machine)
 
-        # Do not start immediately in main() before subscribers are ready.
         # Start after a short delay.
         self.start_timer = self.create_timer(2.0, self.auto_start_once)
 
@@ -140,7 +138,7 @@ class ColorPickerNode(Node):
             self.set_state(new_state)
 
         except json.JSONDecodeError:
-            self.get_logger().error("Could not parse change_to_state command, ignoring,use this format : {\"state\": \"STATE_NAME\"}")#show how to parse json in python
+            self.get_logger().error("Could not parse change_to_state command, ignoring,use this format : {\"state\": \"STATE_NAME\"}")
 
     def calibration_status_callback(self, msg):
         
@@ -328,8 +326,6 @@ class ColorPickerNode(Node):
             "color": color
         })
 
-        # IMPORTANT:
-        # Do not increment current_color_index here.
         # Wait until the robot reports motion_status == "done".
         self.set_state(RobotState.WAIT_FOR_POINT_MOTION)
 
@@ -368,7 +364,6 @@ class ColorPickerNode(Node):
         self.set_state(RobotState.WAIT_FOR_SEARCH_MOTION)
 
     def error_state(self):
-        # This logs every 0.5 seconds, so keep it short.
         self.get_logger().error("System is in error state")
 
     def all_colors_found(self):
@@ -475,17 +470,6 @@ class ColorPickerNode(Node):
             self.marker_pub.publish(marker_array)
 
     def get_marker_pose_from_detection(self, detection):
-        """
-        Supports several possible detection formats, for example:
-
-        {"x": 0.4, "y": 0.1, "z": 0.2}
-
-        {"position": {"x": 0.4, "y": 0.1, "z": 0.2}}
-
-        {"world": {"x": 0.4, "y": 0.1, "z": 0.2}}
-
-        {"pose": {"position": {"x": 0.4, "y": 0.1, "z": 0.2}}}
-        """
 
         try:
             source = detection

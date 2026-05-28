@@ -71,7 +71,7 @@ class CubeVisionNode(Node):
     def __init__(self):
         super().__init__("cube_vision_node")
 
-        # Subscribe to the camera publisher node instead of opening /dev/video0 here.
+        # Subscribe to the camera publisher node
         self.image_topic = "/camera/image_raw"
 
         self.detection_pub = self.create_publisher(
@@ -125,7 +125,6 @@ class CubeVisionNode(Node):
             )
             return
 
-        # Copy so processing does not modify the stored latest frame.
         frame = self.latest_frame.copy()
         debug = frame.copy()
 

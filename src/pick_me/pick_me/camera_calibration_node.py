@@ -249,7 +249,6 @@ class SimpleCameraCalibrationNode(Node):
             self.busy = False
 
     # Robot motion
-
     def move_to_pose(self, x, y, z):
         self.get_logger().info("Waiting for /move_action server...")
 
@@ -488,7 +487,6 @@ class SimpleCameraCalibrationNode(Node):
         return total_error / len(objpoints)
 
     # Result publishing
-
     def publish_result(
         self,
         success,

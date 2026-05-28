@@ -45,7 +45,7 @@ class MotionController(Node):
             "ur5e_wrist_3_joint",
         ]
 
-        # Adjust these if your SRDF "home" is different.
+        # Home pose 
         self.home_joint_positions = {
             "ur5e_shoulder_pan_joint": 0.7853981634,      # 45°
             "ur5e_shoulder_lift_joint": -1.0297442587,   # -59°
@@ -55,9 +55,7 @@ class MotionController(Node):
             "ur5e_wrist_3_joint": 0.0,                   # 0°
         }
 
-        # Extended-search poses are stored here, in the motion controller.
-        # The color-picker node only sends: {"command": "search_next_pose"}
-        # Format: (x, y, z) in self.base_frame.
+        # Extended-search poses are stored here, Format: (x, y, z) in self.base_frame.
         self.extended_search_positions = [
             (-0.218, -0.375, 0.408),
             (-0.276, -0.318, 0.410),
@@ -69,7 +67,6 @@ class MotionController(Node):
         self.current_search_pose_index = 0
 
         # Default orientation for search poses.
-        # Change this quaternion if your camera/tool needs a different fixed orientation.
         self.search_orientation = {
             "x": 0.0,
             "y": 0.0,
@@ -132,11 +129,6 @@ class MotionController(Node):
         self.publish_extended_search_pose_markers()
 
         # Publish camera collision object shortly after startup.
-        # self.camera_mount_timer = self.create_timer(
-        #     1.0,
-        #     self.publish_camera_mount_once,
-        # )
-
         self.get_logger().info("Motion controller started without MoveItPy")
 
     def publish_camera_mount_once(self):
