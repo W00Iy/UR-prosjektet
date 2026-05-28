@@ -11,7 +11,7 @@ to operate autonomously by combining image processing, robot control, and motion
 - `src/my_robot_cell_description` - URDF/XACRO robot and workspace description, RViz configuration and visualization launch files.
 - `src/my_robot_cell_control` - ros2_control configuration, robot control launch files, and UR integration.
 - `src/my_robot_cell_moveit_config` - MoveIt configuration package generated for the robot cell.
-- `src/pick_me` - Python ROS package that launches both bringup and all the custom nodes for movement and camera detection.
+- `src/pick_me` - Python ROS package that launches all the custom nodes for movement and camera detection.
 
 ## Package overview
 
