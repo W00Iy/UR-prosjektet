@@ -87,8 +87,9 @@ source install/setup.bash
 source install/setup.bash
 ros2 launch bringup cell_brinpup.launch.py
 ```
-This `bringup` launch file starts the robot control stack, waits for the robot description, and then starts MoveIt and RViz
-ensure the nodes are up and running before launching
+This `bringup` launch file starts the robot control stack, waits for the robot description, and then starts MoveIt and RViz.
+
+Ensure the nodes are up and running before launching
 
 ```bash
 source install/setup.bash
