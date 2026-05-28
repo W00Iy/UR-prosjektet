@@ -1,6 +1,9 @@
 # UR-prosjektet
 
-A ROS 2 workspace for a Universal Robots cell with robot description, ros2_control setup, MoveIt configuration, and a bringup launch package.
+A ROS 2 workspace for a Universal Robots cell that detects and points to colored
+cubes using machine vision. The cubes can be placed randomly on a table, and the robot should
+identify the cubes and point to them in a specific order based on color. The system is designed
+to operate autonomously by combining image processing, robot control, and motion planning.
 
 ## Repository structure
 
@@ -8,7 +11,7 @@ A ROS 2 workspace for a Universal Robots cell with robot description, ros2_contr
 - `src/my_robot_cell_description` - URDF/XACRO robot and workspace description, RViz configuration and visualization launch files.
 - `src/my_robot_cell_control` - ros2_control configuration, robot control launch files, and UR integration.
 - `src/my_robot_cell_moveit_config` - MoveIt configuration package generated for the robot cell.
-- `src/pick_me` - Python ROS package that launches both bringup and all the coustom nodes for movement and camera detection.
+- `src/pick_me` - Python ROS package that launches both bringup and all the custom nodes for movement and camera detection.
 
 ## Package overview
 
@@ -21,7 +24,7 @@ A ROS 2 workspace for a Universal Robots cell with robot description, ros2_contr
 - `my_robot_cell_moveit_config`
   - Holds MoveIt planning and RViz launch configurations for the robot cell.
 - `pick_me`
-  - Launches both bringup and all the custom nodes for movment and camera detection.
+  - Launches both bringup and all the custom nodes for movement and camera detection.
 
 ## Prerequisites
 
@@ -33,7 +36,7 @@ A ROS 2 workspace for a Universal Robots cell with robot description, ros2_contr
 ## Build instructions
 
 ```bash
-cd /home/wooly/UR-prosjektet
+cd /home/user/UR-prosjektet
 source /opt/ros/Jazzy/setup.bash
 colcon build --symlink-install
 source install/setup.bash
@@ -41,35 +44,35 @@ source install/setup.bash
 
 ## Launch examples
 
-### Start the full pick_me including MoveIt
+### Start the full pick_me system including MoveIt
 
 ```bash
-source /home/wooly/UR-prosjektet/install/setup.bash
-ros2 launch pick_me pick_me_system.launch.py 
+source /home/user/UR-prosjektet/install/setup.bash
+ros2 launch pick_me pick_me_system.launch.py
 ```
 
-This pick_me launch file starts the robot control stack, waits for the robot description, then starts MoveIt, RViz and all the nodes.
+This `pick_me` launch file starts the robot control stack, waits for the robot description, and then starts MoveIt, RViz, and all the required nodes.
 
 ## Configuration notes
 
-- `src/my_robot_cell_control/config/my_robot_calibration.yaml` contains kinematics calibration parameters.
-- `src/my_robot_cell_control/config/ros2_controllers.yaml` contains controller definitions.
-- `src/my_robot_cell_description/urdf/my_robot_cell.urdf.xacro` defines the shared workspace model.
-- `src/my_robot_cell_moveit_config/config/my_robot_cell.srdf` and generated MoveIt launch files configure motion planning.
+* `src/my_robot_cell_control/config/my_robot_calibration.yaml` contains kinematics calibration parameters.
+* `src/my_robot_cell_control/config/ros2_controllers.yaml` contains controller definitions.
+* `src/my_robot_cell_description/urdf/my_robot_cell.urdf.xacro` defines the shared workspace model.
+* `src/my_robot_cell_moveit_config/config/my_robot_cell.srdf` and the generated MoveIt launch files configure motion planning.
 
-## Trobelshooting 
+## Troubleshooting
 
 ### View robot description in RViz
 
 ```bash
-source /home/wooly/UR-prosjektet/install/setup.bash
+source /home/user/UR-prosjektet/install/setup.bash
 ros2 launch my_robot_cell_description view_robot.launch.py ur_type:=ur5e
 ```
 
 ### Start robot control for a UR arm
 
 ```bash
-source /home/wooly/UR-prosjektet/install/setup.bash
+source /home/user/UR-prosjektet/install/setup.bash
 ros2 launch my_robot_cell_control rsp.launch.py robot_ip:=<robot_ip> ur_type:=ur5e launch_rviz:=true
 ```
 
@@ -77,5 +80,5 @@ Replace `<robot_ip>` with your robot controller IP address.
 
 ## Tips
 
-- If you do not have a real robot connected, set `use_mock_hardware:=true` in the control launch arguments to enable mock hardware mode.
-- Update the default `robot_ip` in `src/my_robot_cell_control/launch/start_robot.launch.py` when deploying to your robot.
+* If you do not have a real robot connected, set `use_mock_hardware:=true` in the control launch arguments to enable mock hardware mode.
+* Update the default `robot_ip` in `src/my_robot_cell_control/launch/start_robot.launch.py` when deploying to your robot.
