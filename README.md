@@ -81,14 +81,22 @@ source install/setup.bash
 
 ## Launch examples
 
-### Start the full pick_me system including MoveIt
+### Start the first the drivers and MoveIt
 
 ```bash
-source /home/user/UR-prosjektet/install/setup.bash
+source install/setup.bash
+ros2 launch bringup cell_brinpup.launch.py
+```
+This `bringup` launch file starts the robot control stack, waits for the robot description, and then starts MoveIt and RViz
+ensure the nodes are up and running before launching
+
+```bash
+source install/setup.bash
 ros2 launch pick_me pick_me_system.launch.py
 ```
+in a new terminal.
 
-This `pick_me` launch file starts the robot control stack, waits for the robot description, and then starts MoveIt, RViz, and all the required nodes.
+This `pick_me` launch file starts the cam_to_world, camera_calibration, motion_control, cube_vision and simple_camera_publisher. After a short timer to ensure the nodes have started, the main state machine node is started, color_picker.
 
 ## Configuration notes
 
