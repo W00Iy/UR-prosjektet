@@ -119,7 +119,7 @@ ros2 launch my_robot_cell_description view_robot.launch.py ur_type:=ur5e
 
 ```bash
 source /home/user/UR-prosjektet/install/setup.bash
-ros2 launch my_robot_cell_control rsp.launch.py robot_ip:=<robot_ip> ur_type:=ur5e launch_rviz:=true
+ros2 launch my_robot_cell_control rsp.launch.py robot_ip:=<robot_ip> use_mock_hardware:=false ur_type:=ur5e launch_rviz:=true
 ```
 
 Replace `<robot_ip>` with your robot controller IP address.
