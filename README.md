@@ -26,6 +26,43 @@ to operate autonomously by combining image processing, robot control, and motion
 - `pick_me`
   - Launches both bringup and all the custom nodes for movement and camera detection.
 
+## Node overview
+## cam_to_world_node
+Cam_to_world_node converts cube detections from camera image coordinates into real-world robot coordinates.
+It subscribes to camera detections and target color commands, then calculates the cube position using TF transforms and camera calibration data.
+The node publishes a goal pose for the robot and visualization markers for RViz.
+It acts as the connection between the vision system and robot motion planning.
+
+## camera_calibration_node
+Camera_calibration_node performs automatic camera calibration using a chessboard pattern and robot-guided image capture.
+It moves the robot through predefined calibration poses using MoveIt and captures images from the camera.
+The node uses OpenCV to detect chessboard corners and compute the camera matrix and lens distortion parameters.
+The calibration results are then published and saved for later use in the vision system.
+
+## color_picker
+color_picker acts as the main state machine and controller for the robot system.
+It controls the search process, calibration, and robot actions for pointing at colored cubes in the correct order.
+The node communicates with the vision system and motion controller using ROS topics.
+It also publishes visualization markers and handles system errors and retries.
+
+## cube_vision_node
+cube_vision_node detects colored cubes in the camera image using OpenCV image processing.
+It subscribes to the camera image topic and searches for red, yellow, and blue objects using HSV color filtering.
+The node calculates the pixel position of each detected cube and publishes the results as JSON data.
+It also publishes a debug image with bounding boxes and labels for visualization in RViz or rqt_image_view.
+
+## motion_controller_node
+Motion_controller_node controls the robot movements using MoveIt through the /move_action action server.
+It receives goal poses from /goal_pose and robot commands from /cube_robot/command.
+The node can move the robot home, move to search poses, or point at detected cube positions.
+It also publishes motion status messages so the state machine knows when movement is done or failed.
+
+## simple_camera_publisher_node
+Simple_camera_publisher_node reads images directly from the connected USB camera using OpenCV.
+It converts each camera frame into a ROS 2 Image message using cv_bridge.
+The images are published on /camera/image_raw at a fixed frame rate.
+This gives the vision system a live camera feed to detect the colored cubes.
+
 ## Prerequisites
 
 - ROS 2 Jazzy installed.
