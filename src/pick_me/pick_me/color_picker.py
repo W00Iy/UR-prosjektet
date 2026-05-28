@@ -40,7 +40,9 @@ class ColorPickerNode(Node):
         self.last_motion_status = None
 
         self.search_attempts = 0
-        self.max_search_attempts = 5
+        # The actual extended-search poses are stored in the motion controller.
+        # Keep this number in sync with MotionController.extended_search_positions.
+        self.max_search_attempts = 6
 
         self.last_state_time = time.time()
 
@@ -62,8 +64,15 @@ class ColorPickerNode(Node):
 
         self.calibration_status_sub = self.create_subscription(
             String,
-            "/camera_calibration/status",
+            "/camera_calibration/result",
             self.calibration_status_callback,
+            10
+        )
+
+        self.change_to_state = self.create_subscription(
+            String,
+            "/state_machine/change_to_state",
+            self.change_to_state_callback,
             10
         )
 
@@ -107,6 +116,32 @@ class ColorPickerNode(Node):
         if self.state == RobotState.IDLE:
             self.start_search()
     
+    def change_to_state_callback(self, msg):
+        if self.state == RobotState.ERROR or self.state == RobotState.IDLE:
+            self.get_logger().info("Trying to change state based on external command")
+        else :
+            self.get_logger().warn("Ignoring external command to change state because current state is not ERROR or IDLE")
+            return
+        try:
+            data = json.loads(msg.data)
+            new_state_str = data.get("state")
+
+            if new_state_str is None:
+                self.get_logger().error("Received change_to_state command without 'state' field")
+                return
+
+            try:
+                new_state = RobotState[new_state_str]
+            except KeyError:
+                self.get_logger().error(f"Received invalid state in change_to_state command: {new_state_str}")
+                return
+
+            self.get_logger().info(f"Received external command to change state to {new_state.name}")
+            self.set_state(new_state)
+
+        except json.JSONDecodeError:
+            self.get_logger().error("Could not parse change_to_state command, ignoring,use this format : {\"state\": \"STATE_NAME\"}")#show how to parse json in python
+
     def calibration_status_callback(self, msg):
         
         
@@ -114,6 +149,7 @@ class ColorPickerNode(Node):
             data = json.loads(msg.data)
         except json.JSONDecodeError:
             self.get_logger().error("Could not parse calibration result, trying again...")
+            self.isCalibrating = False
             self.calibration()  # Try again
             return
 
@@ -124,6 +160,7 @@ class ColorPickerNode(Node):
             self.isCalibrating = False
         else:
             self.get_logger().error(f"Calibration failed: {data.get('message')}, Trying again...")
+            self.isCalibrating = False
             self.calibration()  # Try again
 
 
@@ -203,6 +240,7 @@ class ColorPickerNode(Node):
         self.search_attempts = 0
         self.current_color_index = 0
         self.last_motion_status = None
+        self.latest_detections = None
 
         self.get_logger().info("Moving robot to home position before taking search image")
 
@@ -242,11 +280,15 @@ class ColorPickerNode(Node):
             f"Extended search attempt {self.search_attempts}/{self.max_search_attempts}"
         )
 
+        # Clear old camera results before moving to the next search pose.
+        # This prevents SEARCH from reusing detections from the previous pose.
+        self.latest_detections = None
         self.last_motion_status = None
 
+        # The motion controller owns the actual search-pose list.
+        # This node only asks it to move to the next one.
         self.send_robot_command({
-            "command": "search_next_pose",
-            "attempt": self.search_attempts
+            "command": "search_next_pose"
         })
 
         self.set_state(RobotState.WAIT_FOR_SEARCH_MOTION)
@@ -261,7 +303,7 @@ class ColorPickerNode(Node):
             self.get_logger().error("Search movement failed")
             self.set_state(RobotState.ERROR)
 
-        elif self.state_timed_out(timeout_seconds=20.0):
+        elif self.state_timed_out(timeout_seconds=200.0):
             self.get_logger().error("Timed out waiting for search motion")
             self.set_state(RobotState.ERROR)
 
@@ -310,13 +352,20 @@ class ColorPickerNode(Node):
             self.get_logger().error(f"Failed to point at {color}")
             self.set_state(RobotState.ERROR)
 
-        elif self.state_timed_out(timeout_seconds=20.0):
+        elif self.state_timed_out(timeout_seconds=200.0):
             self.get_logger().error(f"Timed out pointing at {color}")
             self.set_state(RobotState.ERROR)
 
     def done(self):
-        self.get_logger().info("Finished pointing at all colors")
-        self.set_state(RobotState.IDLE)
+        self.get_logger().info("Finished pointing at all colors, returning robot to home")
+
+        self.last_motion_status = None
+
+        self.send_robot_command({
+            "command": "go_home"
+        })
+
+        self.set_state(RobotState.WAIT_FOR_SEARCH_MOTION)
 
     def error_state(self):
         # This logs every 0.5 seconds, so keep it short.

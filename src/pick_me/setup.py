@@ -34,6 +34,7 @@ setup(
             'motion_controller_node = pick_me.motion_controller_node:main',
             'main_controller_node = pick_me.color_picker:main',
             'camera_calibration_node = pick_me.camera_calibration_node:main',
+            'simple_camera_publisher_node = pick_me.simple_camera_publisher_node:main',
         ],
     },
 )

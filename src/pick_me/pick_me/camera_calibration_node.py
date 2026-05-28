@@ -11,10 +11,10 @@ import rclpy
 
 from rclpy.node import Node
 from rclpy.action import ActionClient
-from rclpy.duration import Duration
-
 from std_msgs.msg import String
+from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseStamped
+from cv_bridge import CvBridge, CvBridgeError
 
 from moveit_msgs.action import MoveGroup
 from moveit_msgs.msg import (
@@ -36,7 +36,7 @@ class SimpleCameraCalibrationNode(Node):
 
         # ---------------- USER SETTINGS ----------------
 
-        self.camera_device = "/dev/video0"
+        self.image_topic = "/camera/image_raw"
 
         self.group_name = "ur_manipulator"
         self.base_frame = "ur5e_base_link"
@@ -57,12 +57,12 @@ class SimpleCameraCalibrationNode(Node):
         # These are example calibration poses.
         # Adjust them to safe/reachable poses where the chessboard is visible.
         self.calibration_poses = [
-            (-0.218, -0.375, 0.108),
-            (-0.276, -0.318, 0.110),
-            (-0.172, -0.211, 0.111),
-            (-0.113, -0.268, 0.109),
-            (-0.141, -0.239, 0.168),
-            (-0.245, -0.346, 0.168),
+            (-0.218, -0.375, 0.408),
+            (-0.276, -0.318, 0.410),
+            (-0.172, -0.211, 0.411),
+            (-0.113, -0.268, 0.409),
+            (-0.141, -0.239, 0.468),
+            (-0.245, -0.346, 0.468),
         ]
 
         # Keep a simple fixed tool orientation for now.
@@ -89,6 +89,18 @@ class SimpleCameraCalibrationNode(Node):
             10,
         )
 
+        self.bridge = CvBridge()
+        self.latest_image = None
+        self.latest_image_time = None
+        self.image_lock = threading.Lock()
+
+        self.image_sub = self.create_subscription(
+            Image,
+            self.image_topic,
+            self.image_callback,
+            10,
+        )
+
         self.move_group_client = ActionClient(
             self,
             MoveGroup,
@@ -98,8 +110,22 @@ class SimpleCameraCalibrationNode(Node):
         self.busy = False
 
         self.get_logger().info("Simple camera calibration node started")
+        self.get_logger().info(f"Subscribing to camera topic: {self.image_topic}")
         self.get_logger().info("Send command on /camera_calibration/command:")
         self.get_logger().info('  {"command": "calibrate"}')
+
+    # ---------------- IMAGE TOPIC ----------------
+
+    def image_callback(self, msg):
+        try:
+            image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
+        except CvBridgeError as e:
+            self.get_logger().error(f"Could not convert image message: {e}")
+            return
+
+        with self.image_lock:
+            self.latest_image = image.copy()
+            self.latest_image_time = self.get_clock().now()
 
     # ---------------- COMMAND HANDLING ----------------
 
@@ -345,28 +371,22 @@ class SimpleCameraCalibrationNode(Node):
     # ---------------- IMAGE CAPTURE ----------------
 
     def capture_image(self):
-        cap = cv.VideoCapture(self.camera_device, cv.CAP_V4L2)
+        # The physical camera should be opened by one camera driver/node only.
+        # This node just uses the newest frame received on self.image_topic.
+        deadline = time.time() + 5.0
 
-        if not cap.isOpened():
-            self.get_logger().error(f"Could not open camera: {self.camera_device}")
-            return None
+        while time.time() < deadline:
+            with self.image_lock:
+                if self.latest_image is not None:
+                    return self.latest_image.copy()
 
-        # Throw away a few frames so exposure settles.
-        image = None
-
-        for _ in range(5):
-            success, frame = cap.read()
-            if success:
-                image = frame
             time.sleep(0.05)
 
-        cap.release()
-
-        if image is None:
-            self.get_logger().error("Failed to capture image")
-            return None
-
-        return image
+        self.get_logger().error(
+            f"No image received on topic {self.image_topic}. "
+            "Check that your camera publisher is running."
+        )
+        return None
 
     # ---------------- CALIBRATION ----------------
 

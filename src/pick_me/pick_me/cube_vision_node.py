@@ -3,13 +3,12 @@ from rclpy.node import Node
 
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
-from cv_bridge import CvBridge
+from cv_bridge import CvBridge, CvBridgeError
 
 import cv2
 import numpy as np
 import json
-import os
-from ament_index_python.packages import get_package_share_directory
+
 
 def find_positions_by_color(img, color="red", min_area=300):
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -17,14 +16,14 @@ def find_positions_by_color(img, color="red", min_area=300):
     color_ranges = {
         "red": [
             (np.array([0, 50, 50]), np.array([10, 255, 255])),
-            (np.array([170, 50, 50]), np.array([180, 255, 255]))
+            (np.array([170, 50, 50]), np.array([180, 255, 255])),
         ],
         "blue": [
-            (np.array([100, 50, 50]), np.array([130, 255, 255]))
+            (np.array([100, 50, 50]), np.array([130, 255, 255])),
         ],
         "yellow": [
-            (np.array([20, 50, 50]), np.array([35, 255, 255]))
-        ]
+            (np.array([20, 50, 50]), np.array([35, 255, 255])),
+        ],
     }
 
     mask = np.zeros(hsv.shape[:2], dtype=np.uint8)
@@ -39,7 +38,7 @@ def find_positions_by_color(img, color="red", min_area=300):
     contours, _ = cv2.findContours(
         mask,
         cv2.RETR_EXTERNAL,
-        cv2.CHAIN_APPROX_SIMPLE
+        cv2.CHAIN_APPROX_SIMPLE,
     )
 
     targets = []
@@ -54,12 +53,14 @@ def find_positions_by_color(img, color="red", min_area=300):
         cx = x + w // 2
         cy = y + h // 2
 
-        targets.append({
-            "x": int(cx),
-            "y": int(cy),
-            "area": float(area),
-            "box": [int(x), int(y), int(w), int(h)]
-        })
+        targets.append(
+            {
+                "x": int(cx),
+                "y": int(cy),
+                "area": float(area),
+                "box": [int(x), int(y), int(w), int(h)],
+            }
+        )
 
     targets.sort(key=lambda t: t["area"], reverse=True)
 
@@ -70,46 +71,62 @@ class CubeVisionNode(Node):
     def __init__(self):
         super().__init__("cube_vision_node")
 
+        # Subscribe to the camera publisher node instead of opening /dev/video0 here.
+        self.image_topic = "/camera/image_raw"
+
         self.detection_pub = self.create_publisher(
             String,
             "/cube_vision/detections",
-            10
+            10,
         )
 
         self.debug_image_pub = self.create_publisher(
             Image,
             "/cube_vision/debug_image",
-            10
+            10,
         )
 
         self.bridge = CvBridge()
 
-        self.cap = cv2.VideoCapture("/dev/video0", cv2.CAP_V4L2)
-        self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        self.cap.set(cv2.CAP_PROP_FPS, 30)
-        package_share = get_package_share_directory("mega_project")
-        self.image_path = os.path.join(package_share, "tricoloris.jpg")
-        if not self.cap.isOpened():
-            self.get_logger().error("Could not open camera")
-        else:
-            self.get_logger().info("Camera opened successfully")
+        self.latest_frame = None
+        self.latest_frame_time = None
 
-        for _ in range(10):
-            self.cap.read()
+        self.image_sub = self.create_subscription(
+            Image,
+            self.image_topic,
+            self.image_callback,
+            10,
+        )
 
         self.colors = ["red", "yellow", "blue"]
 
         self.timer = self.create_timer(0.1, self.process_frame)
 
-    def process_frame(self):
-        frame = cv2.imread(self.image_path)
+        self.get_logger().info("Cube vision node started")
+        self.get_logger().info(f"Subscribing to image topic: {self.image_topic}")
+        self.get_logger().info("Publishing detections on: /cube_vision/detections")
+        self.get_logger().info("Publishing debug image on: /cube_vision/debug_image")
 
-        if frame is None:
-            self.get_logger().warn(f"Failed to read image: {self.image_path}")
+    def image_callback(self, msg):
+        try:
+            frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
+        except CvBridgeError as e:
+            self.get_logger().error(f"cv_bridge failed: {e}")
             return
 
+        self.latest_frame = frame
+        self.latest_frame_time = self.get_clock().now()
+
+    def process_frame(self):
+        if self.latest_frame is None:
+            self.get_logger().warn(
+                f"No image received yet on {self.image_topic}",
+                throttle_duration_sec=2.0,
+            )
+            return
+
+        # Copy so processing does not modify the stored latest frame.
+        frame = self.latest_frame.copy()
         debug = frame.copy()
 
         detections = {}
@@ -119,7 +136,7 @@ class CubeVisionNode(Node):
             targets, mask = find_positions_by_color(
                 frame,
                 color=color,
-                min_area=300
+                min_area=300,
             )
 
             if len(targets) > 0:
@@ -135,11 +152,11 @@ class CubeVisionNode(Node):
                 cv2.putText(
                     debug,
                     f"{color}: ({x}, {y})",
-                    (bx, by - 10),
+                    (bx, max(by - 10, 20)),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.5,
                     (0, 255, 0),
-                    2
+                    2,
                 )
             else:
                 detections[color] = None
@@ -147,18 +164,21 @@ class CubeVisionNode(Node):
 
         output = {
             "detections": detections,
-            "missing": missing
+            "missing": missing,
         }
 
         msg = String()
         msg.data = json.dumps(output)
         self.detection_pub.publish(msg)
 
-        debug_msg = self.bridge.cv2_to_imgmsg(debug, encoding="bgr8")
-        self.debug_image_pub.publish(debug_msg)
+        try:
+            debug_msg = self.bridge.cv2_to_imgmsg(debug, encoding="bgr8")
+            self.debug_image_pub.publish(debug_msg)
+        except CvBridgeError as e:
+            self.get_logger().error(f"Failed to publish debug image: {e}")
 
     def destroy_node(self):
-        self.cap.release()
+        # No camera release needed because this node does not own the camera anymore.
         super().destroy_node()
 
 

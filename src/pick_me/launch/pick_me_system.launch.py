@@ -1,7 +1,7 @@
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, TimerAction
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, TimerAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
@@ -10,6 +10,39 @@ from moveit_configs_utils import MoveItConfigsBuilder
 
 
 def generate_launch_description():
+    robot_ip = LaunchConfiguration("robot_ip")
+    use_mock_hardware = LaunchConfiguration("use_mock_hardware")
+    headless_mode = LaunchConfiguration("headless_mode")
+    launch_rviz = LaunchConfiguration("launch_rviz")
+    ur_type = LaunchConfiguration("ur_type")
+
+    declared_arguments = [
+        DeclareLaunchArgument(
+            "ur_type",
+            default_value="ur5e",
+            description="UR robot type.",
+        ),
+        DeclareLaunchArgument(
+            "robot_ip",
+            default_value="192.168.56.101",
+            description="IP address of the robot.",
+        ),
+        DeclareLaunchArgument(
+            "use_mock_hardware",
+            default_value="true",
+            description="Use mock hardware instead of real robot.",
+        ),
+        DeclareLaunchArgument(
+            "headless_mode",
+            default_value="true",
+            description="Run UR driver in headless mode.",
+        ),
+        DeclareLaunchArgument(
+            "launch_rviz",
+            default_value="false",
+            description="Launch UR driver RViz.",
+        ),
+    ]
 
     moveit_config = (
         MoveItConfigsBuilder(
@@ -19,7 +52,6 @@ def generate_launch_description():
         .to_moveit_configs()
     )
 
-    # Your already-working robot + MoveIt/RViz launch
     robot_moveit_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([
@@ -27,7 +59,14 @@ def generate_launch_description():
                 "launch",
                 "cell_brinpup.launch.py",
             ])
-        )
+        ),
+        launch_arguments={
+            "ur_type": ur_type,
+            "robot_ip": robot_ip,
+            "use_mock_hardware": use_mock_hardware,
+            "headless_mode": headless_mode,
+            "launch_rviz": launch_rviz,
+        }.items(),
     )
 
     cube_vision_node = Node(
@@ -53,49 +92,49 @@ def generate_launch_description():
             moveit_config.to_dict(),
         ],
     )
+
     main_controller_node = Node(
         package="pick_me",
         executable="main_controller_node",
         name="main_controller_node",
         output="screen",
     )
+
     camera_calibration_node = Node(
         package="pick_me",
         executable="camera_calibration_node",
         name="camera_calibration_node",
         output="screen",
     )
-    start_pick_me_nodes = TimerAction(
-        period=10.0,
-        actions=[
-            cube_vision_node,
-            cam_to_world_node,
-            motion_controller_node,
-            main_controller_node,
-            camera_calibration_node,
-        ],
+
+    simple_camera_publisher_node = Node(
+        package="pick_me",
+        executable="simple_camera_publisher_node",
+        name="simple_camera_publisher_node",
+        output="screen",
     )
-    
 
-    return LaunchDescription([
-        robot_moveit_launch,
+    return LaunchDescription(
+        declared_arguments
+        + [
+            robot_moveit_launch,
 
-        # Start motion controller after move_group/RViz stack has had time to start
-        TimerAction(
-            period=8.0,
-            actions=[
-                motion_controller_node, cam_to_world_node, cube_vision_node, camera_calibration_node
-            ],
-        ),
+            TimerAction(
+                period=8.0,
+                actions=[
+                    motion_controller_node,
+                    cam_to_world_node,
+                    cube_vision_node,
+                    camera_calibration_node,
+                    simple_camera_publisher_node,
+                ],
+            ),
 
-        # Start the main logic later, so motion_controller is already subscribed
-        TimerAction(
-            period=12.0,
-            actions=[
-                main_controller_node,
-            ],
-        ),
-
-        # Add these later when basic robot command flow works
-        # TimerAction(period=12.0, actions=[cube_vision_node, cam_to_world_node]),
-    ])
+            TimerAction(
+                period=12.0,
+                actions=[
+                    main_controller_node,
+                ],
+            ),
+        ]
+    )

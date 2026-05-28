@@ -45,7 +45,7 @@ class MotionController(Node):
             "ur5e_wrist_3_joint",
         ]
 
-        # Adjust these if your SRDF "home" is different
+        # Adjust these if your SRDF "home" is different.
         self.home_joint_positions = {
             "ur5e_shoulder_pan_joint": 0.7853981634,      # 45°
             "ur5e_shoulder_lift_joint": -1.0297442587,   # -59°
@@ -53,6 +53,28 @@ class MotionController(Node):
             "ur5e_wrist_1_joint": -2.0943951024,         # -120°
             "ur5e_wrist_2_joint": 1.5707963268,          # 90°
             "ur5e_wrist_3_joint": 0.0,                   # 0°
+        }
+
+        # Extended-search poses are stored here, in the motion controller.
+        # The color-picker node only sends: {"command": "search_next_pose"}
+        # Format: (x, y, z) in self.base_frame.
+        self.extended_search_positions = [
+            (-0.218, -0.375, 0.408),
+            (-0.276, -0.318, 0.410),
+            (-0.172, -0.211, 0.411),
+            (-0.113, -0.268, 0.409),
+            (-0.141, -0.239, 0.468),
+            (-0.245, -0.346, 0.468),
+        ]
+        self.current_search_pose_index = 0
+
+        # Default orientation for search poses.
+        # Change this quaternion if your camera/tool needs a different fixed orientation.
+        self.search_orientation = {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "w": 1.0,
         }
 
         self.busy = False
@@ -68,6 +90,12 @@ class MotionController(Node):
         self.marker_pub = self.create_publisher(
             MarkerArray,
             "/saved_goal_poses",
+            10,
+        )
+
+        self.search_marker_pub = self.create_publisher(
+            MarkerArray,
+            "/extended_search_poses",
             10,
         )
 
@@ -101,11 +129,13 @@ class MotionController(Node):
         self.move_group_client.wait_for_server()
         self.get_logger().info("Connected to /move_action")
 
-        # Publish camera collision object shortly after startup
-        #self.camera_mount_timer = self.create_timer(
-         #   1.0,
-          #  self.publish_camera_mount_once,
-        #)
+        self.publish_extended_search_pose_markers()
+
+        # Publish camera collision object shortly after startup.
+        # self.camera_mount_timer = self.create_timer(
+        #     1.0,
+        #     self.publish_camera_mount_once,
+        # )
 
         self.get_logger().info("Motion controller started without MoveItPy")
 
@@ -238,6 +268,24 @@ class MotionController(Node):
 
         return goal
 
+    def make_search_pose_stamped(self, position_tuple):
+        x, y, z = position_tuple
+
+        pose_stamped = PoseStamped()
+        pose_stamped.header.frame_id = self.base_frame
+        pose_stamped.header.stamp = self.get_clock().now().to_msg()
+
+        pose_stamped.pose.position.x = float(x)
+        pose_stamped.pose.position.y = float(y)
+        pose_stamped.pose.position.z = float(z)
+
+        pose_stamped.pose.orientation.x = float(self.search_orientation["x"])
+        pose_stamped.pose.orientation.y = float(self.search_orientation["y"])
+        pose_stamped.pose.orientation.z = float(self.search_orientation["z"])
+        pose_stamped.pose.orientation.w = float(self.search_orientation["w"])
+
+        return pose_stamped
+
     def send_move_group_goal(self, goal, description):
         if self.busy:
             self.get_logger().warn("Robot is busy, ignoring command")
@@ -292,8 +340,35 @@ class MotionController(Node):
         self.busy = False
 
     def execute_home_motion(self):
+        # Reset the extended-search sequence whenever a new search starts from home.
+        self.current_search_pose_index = 0
         goal = self.make_home_goal()
         self.send_move_group_goal(goal, "home")
+
+    def execute_next_search_pose(self):
+        if not self.extended_search_positions:
+            self.get_logger().error("No extended search positions are configured")
+            self.publish_motion_status("failed")
+            return
+
+        if self.current_search_pose_index >= len(self.extended_search_positions):
+            self.get_logger().error("No more extended search poses left")
+            self.publish_motion_status("failed")
+            return
+
+        pose_index = self.current_search_pose_index
+        position = self.extended_search_positions[pose_index]
+        self.current_search_pose_index += 1
+
+        pose_stamped = self.make_search_pose_stamped(position)
+        goal = self.make_pose_goal(pose_stamped)
+
+        self.get_logger().info(
+            f"Moving to extended search pose {pose_index + 1}/{len(self.extended_search_positions)}: "
+            f"x={position[0]}, y={position[1]}, z={position[2]}"
+        )
+
+        self.send_move_group_goal(goal, f"extended search pose {pose_index + 1}")
 
     def command_callback(self, msg):
         try:
@@ -309,9 +384,7 @@ class MotionController(Node):
             self.execute_home_motion()
 
         elif command == "search_next_pose":
-            # For now this goes home.
-            # Replace with real search poses later.
-            self.execute_home_motion()
+            self.execute_next_search_pose()
 
         else:
             self.get_logger().warn(f"Unsupported command: {command}")
@@ -371,6 +444,48 @@ class MotionController(Node):
             marker_array.markers.append(text)
 
         self.marker_pub.publish(marker_array)
+
+    def publish_extended_search_pose_markers(self):
+        marker_array = MarkerArray()
+
+        for i, position in enumerate(self.extended_search_positions):
+            pose_stamped = self.make_search_pose_stamped(position)
+
+            sphere = Marker()
+            sphere.header.frame_id = self.base_frame
+            sphere.header.stamp = self.get_clock().now().to_msg()
+            sphere.ns = "extended_search_poses"
+            sphere.id = i * 2
+            sphere.type = Marker.SPHERE
+            sphere.action = Marker.ADD
+            sphere.pose = pose_stamped.pose
+            sphere.scale.x = 0.035
+            sphere.scale.y = 0.035
+            sphere.scale.z = 0.035
+            sphere.color.a = 1.0
+            sphere.color.r = 0.0
+            sphere.color.g = 1.0
+            sphere.color.b = 1.0
+            marker_array.markers.append(sphere)
+
+            text = Marker()
+            text.header.frame_id = self.base_frame
+            text.header.stamp = self.get_clock().now().to_msg()
+            text.ns = "extended_search_pose_labels"
+            text.id = i * 2 + 1
+            text.type = Marker.TEXT_VIEW_FACING
+            text.action = Marker.ADD
+            text.pose = pose_stamped.pose
+            text.pose.position.z += 0.06
+            text.scale.z = 0.035
+            text.color.a = 1.0
+            text.color.r = 1.0
+            text.color.g = 1.0
+            text.color.b = 1.0
+            text.text = f"Search {i + 1}"
+            marker_array.markers.append(text)
+
+        self.search_marker_pub.publish(marker_array)
 
 
 def main(args=None):
