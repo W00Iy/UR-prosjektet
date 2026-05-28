@@ -21,7 +21,7 @@
     <link name="table">
       <visual>
         <geometry>
-          <box size="1.25 0.85 1"/>  <!-- bredde, dybde, høyde -->
+          <box size="1.25 0.85 1"/>  
         </geometry>
         <origin rpy="0 0 0" xyz="0.77 0.5 -0.5"/>
         <material name="table_color">
@@ -36,7 +36,7 @@
       </collision>
     </link>
 
-        <!-- Camera mount på tool0 -->
+        <!-- Camera mount on tool0 -->
     <link name="camera_mount">
       <visual>
         <geometry>
@@ -55,7 +55,7 @@
       </collision>
     </link>
 
-    <!-- Fest camera_mount til tool0 -->
+    <!-- Fix camera_mount to tool0 -->
     <joint name="camera_mount_joint" type="fixed">
       <parent link="${ur_type}_tool0"/>
       <child link="camera_mount"/>
@@ -111,7 +111,7 @@
   </collision>
 </link>
 
-<!-- Fest til bordet -->
+<!-- Fix to table -->
 <joint name="plate1_joint" type="fixed">
   <parent link="table"/>
   <child link="plate_1"/>
@@ -122,7 +122,6 @@
   <child link="plate_2"/>
 </joint>
 
-    <!--This will create the specific robot-->
     <!-- Robot 1 -->
     <xacro:ur_robot
       name="${ur_type}"

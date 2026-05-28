@@ -21,7 +21,8 @@ from tf2_ros import (
     ExtrapolationException,
 )
 
-
+# This node subscribes to camera detections and target color commands, transforms the detected pixel coordinates of the target object into world coordinates, 
+# and publishes a goal pose for the robot to pick the object. It also publishes visualization markers for the target pose.
 class CamToWorld(Node):
     def __init__(self):
         super().__init__("cam_to_pose")
@@ -36,8 +37,6 @@ class CamToWorld(Node):
         self.base_frame = "ur5e_base_link"
         self.ee_frame = "ur5e_tool0"
 
-        # For now we treat the camera as mounted on the tool frame.
-        # If you later add a real camera frame, change this to that frame.
         self.camera_frame = "ur5e_tool0"
 
         # Camera matrix fallback.
@@ -48,7 +47,7 @@ class CamToWorld(Node):
             [0.0, 0.0, 1.0],
         ])
 
-        self.cube_height = 0.05  # 50 mm
+        self.cube_height = 0.05 # Adjust cube height in meters
 
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -106,6 +105,7 @@ class CamToWorld(Node):
         self.get_logger().info(f"Using ee_frame: {self.ee_frame}")
         self.get_logger().info(f"Using camera_frame: {self.camera_frame}")
 
+    # Callback for receiving target color commands. Expects JSON string with format: {"color": "action": "point"}
     def target_color_callback(self, msg):
         try:
             data = json.loads(msg.data)
@@ -140,6 +140,7 @@ class CamToWorld(Node):
         except json.JSONDecodeError:
             self.get_logger().error("Could not parse /cube_vision/detections JSON")
 
+    # Convert a TF transform message to a 4x4 homogeneous transformation matrix.
     def transform_to_matrix(self, tf):
         t = tf.transform.translation
         q = tf.transform.rotation
@@ -209,11 +210,9 @@ class CamToWorld(Node):
             return None
 
         # Estimate target plane height.
-        # Your old version used current TCP z minus cube height.
         z = z_world - self.cube_height
 
         # Camera offset relative to tool frame.
-        # If your camera is not offset 9 cm in tool X, adjust this.
         tool_to_cam = np.array([
             [1.0, 0.0, 0.0, 0.09],
             [0.0, 1.0, 0.0, 0.0],
@@ -327,11 +326,8 @@ class CamToWorld(Node):
         goal_pose.pose.position.x = float(p_world[0, 0])
         goal_pose.pose.position.y = float(p_world[1, 0])
 
-        # Keep same TCP height for now.
-        # Later you can add an approach height offset here.
         goal_pose.pose.position.z = float(translation.z)
 
-        # Keep current end-effector orientation.
         goal_pose.pose.orientation.x = rotation.x
         goal_pose.pose.orientation.y = rotation.y
         goal_pose.pose.orientation.z = rotation.z

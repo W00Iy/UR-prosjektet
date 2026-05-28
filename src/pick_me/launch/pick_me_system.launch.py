@@ -8,7 +8,7 @@ from launch_ros.substitutions import FindPackageShare
 
 from moveit_configs_utils import MoveItConfigsBuilder
 
-
+# This launch file starts the entire pick and place system, including the robot driver, MoveIt, and all custom nodes for vision and control.
 def generate_launch_description():
     robot_ip = LaunchConfiguration("robot_ip")
     use_mock_hardware = LaunchConfiguration("use_mock_hardware")
@@ -16,6 +16,7 @@ def generate_launch_description():
     launch_rviz = LaunchConfiguration("launch_rviz")
     ur_type = LaunchConfiguration("ur_type")
 
+    # Declare launch arguments
     declared_arguments = [
         DeclareLaunchArgument(
             "ur_type",
@@ -114,6 +115,7 @@ def generate_launch_description():
         output="screen",
     )
 
+    # Launch the control launch file, then wait for the robot description to be available, and finally start MoveIt and RViz
     return LaunchDescription(
         declared_arguments
         + [
