@@ -61,7 +61,7 @@ class CamToWorld(Node):
 
         self.camera_info_sub = self.create_subscription(
             CameraInfo,
-            "/camera/camera_info",
+            "/camera_calibration/result",
             self.cam_matrix_callback,
             10,
         )
