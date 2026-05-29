@@ -11,22 +11,21 @@ class SimpleCameraPublisherNode(Node):
     def __init__(self):
         super().__init__("simple_camera_publisher")
 
-        # ---------------- USER SETTINGS ----------------
-
-        self.camera_device = "/dev/video4"
+        # Camera settings
+        self.camera_device = "/dev/video0"
         self.image_topic = "/camera/image_raw"
         self.publish_fps = 30.0
 
-        # Optional camera settings. Set to None to leave unchanged.
+        # Optional camera settings.
         self.frame_width = 640
         self.frame_height = 480
 
-        # ---------------- ROS INTERFACE ----------------
+        # Ros interface
 
         self.bridge = CvBridge()
         self.image_pub = self.create_publisher(Image, self.image_topic, 10)
 
-        # ---------------- CAMERA ----------------
+        # Camera initialization
 
         self.cap = cv.VideoCapture(self.camera_device, cv.CAP_V4L2)
 
