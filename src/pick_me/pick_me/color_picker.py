@@ -177,9 +177,10 @@ class ColorPickerNode(Node):
             data = json.loads(msg.data)
             self.last_motion_status = data.get("status")
             self.get_logger().info(f"Received motion status: {self.last_motion_status}")
+            
         except json.JSONDecodeError:
-            self.get_logger().error("Could not parse motion status")
-            self.set_state(RobotState.ERROR)
+            self.get_logger().error("Could not parse motion status, trying again...")
+            
 
     def set_state(self, new_state):
         if self.state != new_state:
@@ -365,7 +366,7 @@ class ColorPickerNode(Node):
             "command": "go_home"
         })
 
-        self.set_state(RobotState.WAIT_FOR_SEARCH_MOTION)
+        self.set_state(RobotState.IDLE)
 
     def error_state(self):
         # This logs every 0.5 seconds, so keep it short.

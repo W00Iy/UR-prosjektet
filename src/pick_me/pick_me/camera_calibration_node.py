@@ -34,8 +34,6 @@ class SimpleCameraCalibrationNode(Node):
     def __init__(self):
         super().__init__("camera_calibration_node")
 
-        # ---------------- USER SETTINGS ----------------
-
         self.image_topic = "/camera/image_raw"
 
         self.group_name = "ur_manipulator"
@@ -54,27 +52,25 @@ class SimpleCameraCalibrationNode(Node):
             "camera_calibration_output",
         )
 
-        # These are example calibration poses.
-        # Adjust them to safe/reachable poses where the chessboard is visible.
+        # Calibration poses.
         self.calibration_poses = [
-            (-0.218, -0.375, 0.408),
-            (-0.276, -0.318, 0.410),
-            (-0.172, -0.211, 0.411),
-            (-0.113, -0.268, 0.409),
-            (-0.141, -0.239, 0.468),
-            (-0.245, -0.346, 0.468),
+            (0.300, 0.100, 0.400),
+            (0.370, 0.250, 0.400),
+            (0.370, 0.000, 0.400),
+            (0.500, 0.000, 0.400),
+            (0.380, -0.120, 0.400),
+            (0.300, 0.000, 0.400),
         ]
 
-        # Keep a simple fixed tool orientation for now.
-        # If planning fails, change these to match a known good RViz pose.
+        # Goal orientation for calibration poses
         self.goal_orientation = {
-            "x": 0.3,
-            "y": 0.707,
-            "z": 0.0,
-            "w": 0.0,
+            "x": 0.923,
+            "y": -0.379,
+            "z": 0.008,
+            "w": 0.021,
         }
 
-        # ---------------- ROS INTERFACE ----------------
+        # Ros interface
 
         self.command_sub = self.create_subscription(
             String,
@@ -114,7 +110,7 @@ class SimpleCameraCalibrationNode(Node):
         self.get_logger().info("Send command on /camera_calibration/command:")
         self.get_logger().info('  {"command": "calibrate"}')
 
-    # ---------------- IMAGE TOPIC ----------------
+    # Image topic
 
     def image_callback(self, msg):
         try:
@@ -127,7 +123,7 @@ class SimpleCameraCalibrationNode(Node):
             self.latest_image = image.copy()
             self.latest_image_time = self.get_clock().now()
 
-    # ---------------- COMMAND HANDLING ----------------
+    # Command topic
 
     def command_callback(self, msg):
         try:
@@ -161,7 +157,7 @@ class SimpleCameraCalibrationNode(Node):
         thread.daemon = True
         thread.start()
 
-    # ---------------- MAIN SEQUENCE ----------------
+    # Main sequence
 
     def run_calibration_sequence(self):
         try:
@@ -252,7 +248,7 @@ class SimpleCameraCalibrationNode(Node):
         finally:
             self.busy = False
 
-    # ---------------- ROBOT MOTION ----------------
+    # Robot motion
 
     def move_to_pose(self, x, y, z):
         self.get_logger().info("Waiting for /move_action server...")
@@ -294,6 +290,7 @@ class SimpleCameraCalibrationNode(Node):
         )
         return False
 
+    # Create a MoveGroup goal for moving to the specified (x, y, z) position with the fixed orientation.
     def make_move_group_goal(self, x, y, z):
         goal = MoveGroup.Goal()
 
@@ -368,11 +365,8 @@ class SimpleCameraCalibrationNode(Node):
         future.add_done_callback(callback)
         return event.wait(timeout=timeout_seconds)
 
-    # ---------------- IMAGE CAPTURE ----------------
-
+    # Image capture
     def capture_image(self):
-        # The physical camera should be opened by one camera driver/node only.
-        # This node just uses the newest frame received on self.image_topic.
         deadline = time.time() + 5.0
 
         while time.time() < deadline:
@@ -388,7 +382,7 @@ class SimpleCameraCalibrationNode(Node):
         )
         return None
 
-    # ---------------- CALIBRATION ----------------
+    # Calibration
 
     def calibrate_from_images(self, images):
         criteria = (
@@ -493,7 +487,7 @@ class SimpleCameraCalibrationNode(Node):
 
         return total_error / len(objpoints)
 
-    # ---------------- RESULT ----------------
+    # Result publishing
 
     def publish_result(
         self,

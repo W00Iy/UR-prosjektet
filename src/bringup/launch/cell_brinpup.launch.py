@@ -9,12 +9,14 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
+    # Retrieve launch configuration variables
     robot_ip = LaunchConfiguration("robot_ip")
     use_mock_hardware = LaunchConfiguration("use_mock_hardware")
     headless_mode = LaunchConfiguration("headless_mode")
     launch_rviz = LaunchConfiguration("launch_rviz")
     ur_type = LaunchConfiguration("ur_type")
 
+    # Declare launch arguments
     declared_arguments = [
         DeclareLaunchArgument(
             "ur_type",
@@ -43,6 +45,7 @@ def generate_launch_description():
         ),
     ]
 
+    # Include the robot control launch file
     control_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([
@@ -60,6 +63,7 @@ def generate_launch_description():
         }.items(),
     )
 
+    # Wait for the robot description to be available before starting MoveIt
     wait_robot_description = Node(
         package="ur_robot_driver",
         executable="wait_for_robot_description",
@@ -86,6 +90,7 @@ def generate_launch_description():
         )
     )
 
+    # Launch the control launch file, then wait for the robot description to be available, and finally start MoveIt and RViz
     return LaunchDescription(
         declared_arguments
         + [

@@ -15,7 +15,7 @@ class SimpleCameraPublisherNode(Node):
 
         self.camera_device = "/dev/video4"
         self.image_topic = "/camera/image_raw"
-        self.publish_fps = 3.0
+        self.publish_fps = 30.0
 
         # Optional camera settings. Set to None to leave unchanged.
         self.frame_width = 640

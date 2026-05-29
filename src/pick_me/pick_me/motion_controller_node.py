@@ -47,34 +47,35 @@ class MotionController(Node):
 
         # Adjust these if your SRDF "home" is different.
         self.home_joint_positions = {
-            "ur5e_shoulder_pan_joint": 0.7853981634,      # 45°
-            "ur5e_shoulder_lift_joint": -1.0297442587,   # -59°
-            "ur5e_elbow_joint": -1.5707963268,           # -90°
-            "ur5e_wrist_1_joint": -2.0943951024,         # -120°
-            "ur5e_wrist_2_joint": 1.5707963268,          # 90°
-            "ur5e_wrist_3_joint": 0.0,                   # 0°
+            "ur5e_shoulder_pan_joint": math.radians(56),      # 45°
+            "ur5e_shoulder_lift_joint": math.radians(-97),   # -100°
+            "ur5e_elbow_joint": math.radians(97),            # 110°
+            "ur5e_wrist_1_joint": math.radians(-93),          # 260°
+            "ur5e_wrist_2_joint": math.radians(-88),          # -90°
+            "ur5e_wrist_3_joint": math.radians(0),         # -360°
         }
 
         # Extended-search poses are stored here, in the motion controller.
         # The color-picker node only sends: {"command": "search_next_pose"}
         # Format: (x, y, z) in self.base_frame.
         self.extended_search_positions = [
-            (-0.218, -0.375, 0.408),
-            (-0.276, -0.318, 0.410),
-            (-0.172, -0.211, 0.411),
-            (-0.113, -0.268, 0.409),
-            (-0.141, -0.239, 0.468),
-            (-0.245, -0.346, 0.468),
+            (0.330, 0.500, 0.450),
+            (0.330, 0.600, 0.450),
+            (0.400, 0.450, 0.450),
+            (0.550, 0.500, 0.450),
+            (0.450, 0.400, 0.450),
+            (0.400, 0.400, 0.450),
         ]
+
         self.current_search_pose_index = 0
 
         # Default orientation for search poses.
         # Change this quaternion if your camera/tool needs a different fixed orientation.
         self.search_orientation = {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0,
-            "w": 1.0,
+            "x": 0.923,
+            "y": -0.379,
+            "z": 0.008,
+            "w": 0.021,
         }
 
         self.busy = False
@@ -190,6 +191,8 @@ class MotionController(Node):
 
         request = MotionPlanRequest()
         request.group_name = self.group_name
+        request.pipeline_id = "pilz_industrial_motion_planner"
+        request.planner_id = "PTP" 
         request.num_planning_attempts = 10
         request.allowed_planning_time = 5.0
         request.max_velocity_scaling_factor = 0.1
