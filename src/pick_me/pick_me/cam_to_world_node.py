@@ -29,9 +29,7 @@ class CamToWorld(Node):
 
         self.sent_goal = False
         self.goal_requested = False
-        self.saved_targets = []
-        self.current_target_index = 0
-        self.snapshot_taken = False
+
         self.latest_cam = None
         self.target_color = None
 
@@ -50,9 +48,7 @@ class CamToWorld(Node):
         ])
 
         self.cube_height = 0.05 # Adjust cube height in meters
-        self.table_z = 0.0
-        self.approach_offset = 0.10
-        
+
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
@@ -65,7 +61,7 @@ class CamToWorld(Node):
 
         self.camera_info_sub = self.create_subscription(
             CameraInfo,
-            "/camera_calibration/result",
+            "/camera/camera_info",
             self.cam_matrix_callback,
             10,
         )
@@ -202,47 +198,42 @@ class CamToWorld(Node):
 
         return tf.transform.translation, tf.transform.rotation
 
-    def camera_to_point(self, u, v, object_z):
+    def camera_to_point(self, pixel_ray, z_world):
         tf = self.lookup_transform_latest(
             self.base_frame,
-            self.ee_frame,
+            self.camera_frame,
             timeout_seconds=1.0,
         )
 
         if tf is None:
+            self.get_logger().error("Could not convert from camera to world point")
             return None
 
-        T_base_tool = self.transform_to_matrix(tf)
+        # Estimate target plane height.
+        z = z_world - self.cube_height
 
-        # Camera offset from tool
-        T_tool_cam = np.eye(4)
-        T_tool_cam[0, 3] = 0.09
+        # Camera offset relative to tool frame.
+        tool_to_cam = np.array([
+            [1.0, 0.0, 0.0, 0.09],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ])
 
-        T_base_cam = T_base_tool @ T_tool_cam
+        world_to_camera = self.transform_to_matrix(tf) @ tool_to_cam
 
-        fx = self.K[0, 0]
-        fy = self.K[1, 1]
-        cx = self.K[0, 2]
-        cy = self.K[1, 2]
+        PI_tilde = np.vstack((
+            z * np.eye(3),
+            np.array([[0.0, 0.0, 1.0]]),
+        ))
 
-        # Normalized ray
-        x = (u - cx) / fx
-        y = (v - cy) / fy
+        try:
+            p_world = world_to_camera @ PI_tilde @ np.linalg.inv(self.K) @ pixel_ray
+            return p_world
 
-        ray_cam = np.array([x, y, 1.0])
-        ray_cam = ray_cam / np.linalg.norm(ray_cam)
-
-        R = T_base_cam[0:3, 0:3]
-        t = T_base_cam[0:3, 3]
-
-        ray_world = R @ ray_cam
-
-        # Intersect ray with plane z = object_z
-        scale = (object_z - t[2]) / ray_world[2]
-
-        p_world = t + scale * ray_world
-
-        return p_world
+        except np.linalg.LinAlgError:
+            self.get_logger().error("Camera matrix is not invertible")
+            return None
 
     def get_detection_pixel(self, detection):
         """
@@ -274,72 +265,68 @@ class CamToWorld(Node):
             return None
 
     def procedure(self):
-
         if not self.goal_requested:
             return
 
+        if self.sent_goal:
+            return
+
+        if self.target_color is None:
+            return
+
         if self.latest_cam is None:
-            self.get_logger().warn("No detections")
+            self.get_logger().warn("No camera detections received yet")
             return
-
-        # TAKE SNAPSHOT ONLY ONCE
-        if not self.snapshot_taken:
-
-            detections = self.latest_cam.get("detections", {})
-
-            self.saved_targets = []
-
-            cube_z = self.table_z + self.cube_height
-
-            for color_name, detection in detections.items():
-
-                pixel = self.get_detection_pixel(detection)
-
-                if pixel is None:
-                    continue
-
-                u, v = pixel
-
-                p_world = self.camera_to_point(u, v, cube_z)
-
-                if p_world is None:
-                    continue
-
-                self.saved_targets.append({
-                    "color": color_name,
-                    "x": float(p_world[0]),
-                    "y": float(p_world[1]),
-                    "z": cube_z + self.approach_offset,
-                })
-
-                self.get_logger().info(
-                    f"Saved {color_name} target at "
-                    f"{p_world[0]:.3f}, "
-                    f"{p_world[1]:.3f}, "
-                    f"{cube_z:.3f}"
-                )
-
-            self.snapshot_taken = True
-            self.current_target_index = 0
-
-        # DONE
-        if self.current_target_index >= len(self.saved_targets):
-            self.get_logger().info("Finished all targets")
-            self.goal_requested = False
-            return
-
-        # SEND NEXT TARGET
-        target = self.saved_targets[self.current_target_index]
 
         translation, rotation = self.get_current_ee_pose()
+
+        if translation is None:
+            self.get_logger().error("Translation does not exist")
+            return
+
+        if rotation is None:
+            self.get_logger().error("Rotation does not exist")
+            return
+
+        detections = self.latest_cam.get("detections", {})
+        detection = detections.get(self.target_color)
+
+        if detection is None:
+            self.get_logger().warn(
+                f"Did not find {self.target_color} in detections"
+            )
+            return
+
+        pixel = self.get_detection_pixel(detection)
+
+        if pixel is None:
+            self.get_logger().error(
+                f"Detection for {self.target_color} does not contain valid x/y pixel data: {detection}"
+            )
+            return
+
+        x, y = pixel
+
+        pixel_ray = np.array([
+            [x],
+            [y],
+            [1.0],
+        ])
+
+        p_world = self.camera_to_point(pixel_ray, translation.z)
+
+        if p_world is None:
+            self.get_logger().error("World point does not exist")
+            return
 
         goal_pose = PoseStamped()
         goal_pose.header.stamp = self.get_clock().now().to_msg()
         goal_pose.header.frame_id = self.base_frame
 
-        goal_pose.pose.position.x = target["x"]
-        goal_pose.pose.position.y = target["y"]
-        goal_pose.pose.position.z = target["z"]
+        goal_pose.pose.position.x = float(p_world[0, 0])
+        goal_pose.pose.position.y = float(p_world[1, 0])
+
+        goal_pose.pose.position.z = float(translation.z)
 
         goal_pose.pose.orientation.x = rotation.x
         goal_pose.pose.orientation.y = rotation.y
@@ -347,17 +334,17 @@ class CamToWorld(Node):
         goal_pose.pose.orientation.w = rotation.w
 
         self.goal_publisher.publish(goal_pose)
+        self.publish_target_marker(goal_pose, self.target_color)
 
-        self.publish_target_marker(goal_pose, target["color"])
+        self.sent_goal = True
+        self.goal_requested = False
 
         self.get_logger().info(
-            f"Moving to {target['color']} cube"
+            f"Published /goal_pose for {self.target_color}: "
+            f"x={goal_pose.pose.position.x:.3f}, "
+            f"y={goal_pose.pose.position.y:.3f}, "
+            f"z={goal_pose.pose.position.z:.3f}"
         )
-
-        self.current_target_index += 1
-
-        # WAIT for next command cycle
-        self.goal_requested = False
 
     def publish_target_marker(self, goal_pose, color_name):
         marker_array = MarkerArray()
