@@ -177,7 +177,6 @@ class CubeVisionNode(Node):
             self.get_logger().error(f"Failed to publish debug image: {e}")
 
     def destroy_node(self):
-        # No camera release needed because this node does not own the camera anymore.
         super().destroy_node()
 
 

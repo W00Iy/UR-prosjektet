@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import cv2 as cv
 import rclpy
 from rclpy.node import Node
@@ -16,17 +14,15 @@ class SimpleCameraPublisherNode(Node):
         self.image_topic = "/camera/image_raw"
         self.publish_fps = 30.0
 
-        # Optional camera settings.
+        # Optional camera settings
         self.frame_width = 640
         self.frame_height = 480
 
         # Ros interface
-
         self.bridge = CvBridge()
         self.image_pub = self.create_publisher(Image, self.image_topic, 10)
 
         # Camera initialization
-
         self.cap = cv.VideoCapture(self.camera_device, cv.CAP_V4L2)
 
         if not self.cap.isOpened():

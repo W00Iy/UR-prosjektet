@@ -71,7 +71,6 @@ class SimpleCameraCalibrationNode(Node):
         }
 
         # Ros interface
-
         self.command_sub = self.create_subscription(
             String,
             "/camera_calibration/command",
@@ -124,7 +123,6 @@ class SimpleCameraCalibrationNode(Node):
             self.latest_image_time = self.get_clock().now()
 
     # Command topic
-
     def command_callback(self, msg):
         try:
             data = json.loads(msg.data)
@@ -158,7 +156,6 @@ class SimpleCameraCalibrationNode(Node):
         thread.start()
 
     # Main sequence
-
     def run_calibration_sequence(self):
         try:
             self.get_logger().info("Starting calibration sequence")
@@ -249,7 +246,6 @@ class SimpleCameraCalibrationNode(Node):
             self.busy = False
 
     # Robot motion
-
     def move_to_pose(self, x, y, z):
         self.get_logger().info("Waiting for /move_action server...")
 
@@ -383,7 +379,6 @@ class SimpleCameraCalibrationNode(Node):
         return None
 
     # Calibration
-
     def calibrate_from_images(self, images):
         criteria = (
             cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER,
@@ -488,7 +483,6 @@ class SimpleCameraCalibrationNode(Node):
         return total_error / len(objpoints)
 
     # Result publishing
-
     def publish_result(
         self,
         success,

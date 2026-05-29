@@ -132,7 +132,6 @@ class ColorPickerNode(Node):
         self.set_state(RobotState.IDLE)
 
     def idle(self):
-        # In the future this could wait for a UI button, service call, or keyboard command.
         pass
 
     def start_search(self):
@@ -216,7 +215,6 @@ class ColorPickerNode(Node):
             "color": color
         })
         self.current_color_index +=1
-        #self.set_state(RobotState.WAIT_FOR_POINT_MOTION)
 
     def wait_for_point_motion(self):
         color = self.colors_to_find[self.current_color_index]
@@ -243,11 +241,6 @@ class ColorPickerNode(Node):
 
     def error_state(self):
         self.get_logger().error("System is in error state")
-
-        # Later:
-        # publish stop command
-        # wait for reset command
-        # move robot to safe position
 
     def all_colors_found(self):
         for color in self.colors_to_find:
@@ -296,8 +289,7 @@ def main(args=None):
     node = ColorPickerNode()
 
     try:
-        # Automatically start search after boot for now.
-        # Later you can trigger this from a service or UI.
+        # Automatically start search after boot
         node.start_search()
 
         rclpy.spin(node)

@@ -47,12 +47,12 @@ class MotionController(Node):
 
         # Home pose 
         self.home_joint_positions = {
-            "ur5e_shoulder_pan_joint": math.radians(56),      # 45°
-            "ur5e_shoulder_lift_joint": math.radians(-97),   # -100°
-            "ur5e_elbow_joint": math.radians(97),            # 110°
-            "ur5e_wrist_1_joint": math.radians(-93),          # 260°
-            "ur5e_wrist_2_joint": math.radians(-88),          # -90°
-            "ur5e_wrist_3_joint": math.radians(0),         # -360°
+            "ur5e_shoulder_pan_joint": math.radians(56),   
+            "ur5e_shoulder_lift_joint": math.radians(-97),  
+            "ur5e_elbow_joint": math.radians(97),            
+            "ur5e_wrist_1_joint": math.radians(-93),        
+            "ur5e_wrist_2_joint": math.radians(-88),         
+            "ur5e_wrist_3_joint": math.radians(0),         
         }
 
         # Extended-search poses are stored here, Format: (x, y, z) in self.base_frame.
